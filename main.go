@@ -101,15 +101,9 @@ func printExifInfo(name string, d *exif.ExifDirectory) {
 		return
 	}
 
-	fieldList := d.GetFieldList()
-
 	fmt.Printf("[%s IFD]\n", name)
-	for _, v := range fieldList {
-		fmt.Printf("%04X\t%-9s\t%10d\t", v.Tag, v.GetFormatTypeString(), v.Count)
-		for _, b := range v.Data {
-			fmt.Printf("%02X,", b)
-		}
-		fmt.Println()
+	for _, v := range d.GetFieldList() {
+		fmt.Println(v)
 	}
 	fmt.Println()
 }

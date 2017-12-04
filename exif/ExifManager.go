@@ -25,19 +25,19 @@ func CreateExifManager(payload []byte) *ExifManager {
 
 	ifdExifField := ifd0th.findField(0x8769)
 	if ifdExifField != nil {
-		ifdExif := CreateExifDirectory(payload, byteOrder.Uint32(ifdExifField.Data), byteOrder)
+		ifdExif := CreateExifDirectory(payload, byteOrder.Uint32(ifdExifField.GetData()), byteOrder)
 		e.Directory[IFD_Exif_NAME] = ifdExif
 
 		ifdInteroperabilityField := ifdExif.findField(0xA005)
 		if ifdInteroperabilityField != nil {
-			ifdInteroperability := CreateExifDirectory(payload, byteOrder.Uint32(ifdInteroperabilityField.Data), byteOrder)
+			ifdInteroperability := CreateExifDirectory(payload, byteOrder.Uint32(ifdInteroperabilityField.GetData()), byteOrder)
 			e.Directory[IFD_Interoperability_NAME] = ifdInteroperability
 		}
 	}
 
 	ifdGpsField := ifd0th.findField(0x8825)
 	if ifdGpsField != nil {
-		ifdGps := CreateExifDirectory(payload, byteOrder.Uint32(ifdGpsField.Data), byteOrder)
+		ifdGps := CreateExifDirectory(payload, byteOrder.Uint32(ifdGpsField.GetData()), byteOrder)
 		e.Directory[IFD_GPS_NAME] = ifdGps
 	}
 

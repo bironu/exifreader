@@ -1,19 +1,48 @@
 package exif
 
 import (
+	"fmt"
 	"encoding/binary"
 )
 
 const FIELD_SIZE = 12
 
-type ExifField struct {
-	Tag uint16
-	FormatType uint16
-	Count uint32
-	Data []byte
+type ExifField interface {
+	GetTag() uint16
+	GetType() uint16
+	GetCount() uint32
+	GetData() []byte
+	String() string // for Stringer I/F
 }
 
-const IFD_FORMAT_BYTE = 1
+type ExifCommonField struct {
+	tag_ uint16
+	type_ uint16
+	count_ uint32
+	data_ []byte
+	byteOrder_ binary.ByteOrder
+}
+
+func (f *ExifCommonField) GetTag() uint16 {
+	return f.tag_
+}
+func (f *ExifCommonField) GetType() uint16 {
+	return f.type_
+}
+func (f *ExifCommonField) GetCount() uint32 {
+	return f.count_
+}
+func (f *ExifCommonField) GetData() []byte {
+	return f.data_
+}
+func (f *ExifCommonField) String() string {
+	return fmt.Sprintf("%04X\t%-9s\t%10d\t", f.GetTag(), f.GetFormatTypeString(), f.GetCount())
+}
+func (f *ExifCommonField) GetFormatTypeString() string {
+	return FormatTypeMap[f.GetType()].FormatName
+}
+
+const IFD_FORMAT_UBYTE = 1
 const IFD_FORMAT_STRING = 2
 const IFD_FORMAT_USHORT = 3
 const IFD_FORMAT_ULONG = 4
@@ -33,7 +62,7 @@ type FormatType struct {
 }
 
 var FormatTypeMap = map[uint16]FormatType{
-	IFD_FORMAT_BYTE:{1, "BYTE"},
+	IFD_FORMAT_UBYTE:{1, "BYTE"},
 	IFD_FORMAT_STRING:{1, "ASCII"},
 	IFD_FORMAT_USHORT:{2, "SHORT"},
 	IFD_FORMAT_ULONG:{4, "LONG"},
@@ -48,21 +77,38 @@ var FormatTypeMap = map[uint16]FormatType{
 	IFD_FORMAT_IFD:{1, "IFD"},
 }
 
-func CreateExifField(payload []byte, offset uint32, byteOrder binary.ByteOrder) *ExifField {
-	e := ExifField {
-		byteOrder.Uint16(payload[offset:offset+2]),
-		byteOrder.Uint16(payload[offset+2:offset+4]),
-		byteOrder.Uint32(payload[offset+4:offset+8]),
-		payload[offset+8:offset+12],
+func CreateExifField(payload []byte, offset uint32, byteOrder binary.ByteOrder) ExifField {
+	common := ExifCommonField {
+		tag_ : byteOrder.Uint16(payload[offset:offset+2]),
+		type_ : byteOrder.Uint16(payload[offset+2:offset+4]),
+		count_ : byteOrder.Uint32(payload[offset+4:offset+8]),
+		data_ : payload[offset+8:offset+12],
+		byteOrder_ : byteOrder,
 	}
-	byteCount := e.Count * FormatTypeMap[e.FormatType].BytePerFormat
+	byteCount := common.GetCount() * FormatTypeMap[common.GetType()].BytePerFormat
 	if byteCount > 4 {
-		dataOffset := byteOrder.Uint32(e.Data)
-		e.Data = payload[dataOffset:dataOffset+byteCount]
+		dataOffset := byteOrder.Uint32(common.GetData())
+		common.data_ = payload[dataOffset:dataOffset+byteCount]
 	}
-	return &e
+
+	var e ExifField
+	switch common.GetType() {
+	case IFD_FORMAT_UBYTE: e = &ExifUByteField{&common}
+	case IFD_FORMAT_STRING: e = &ExifStringField{&common}
+	case IFD_FORMAT_USHORT: e = &ExifUShortField{&common}
+	case IFD_FORMAT_ULONG: e = &ExifULongField{&common}
+	case IFD_FORMAT_URATIONAL: e = &ExifURationalField{&common}
+	case IFD_FORMAT_SBYTE: e = &ExifSByteField{&common}
+	case IFD_FORMAT_UNDEFINED: e = &ExifUndefinedField{&common}
+	case IFD_FORMAT_SSHORT: e = &ExifSShortField{&common}
+	case IFD_FORMAT_SLONG: e = &ExifSLongField{&common}
+	case IFD_FORMAT_SRATIONAL: e = &ExifSRationalField{&common}
+	case IFD_FORMAT_SINGLE: e = &ExifSingleFloatField{&common}
+	case IFD_FORMAT_DOUBLE: e = &ExifDoubleFloatField{&common}
+	case IFD_FORMAT_IFD: e = &ExifIFDField{&common}
+	default:
+	}
+	
+	return e
 }
 
-func (f *ExifField) GetFormatTypeString() string {
-	return FormatTypeMap[f.FormatType].FormatName
-}
