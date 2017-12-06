@@ -5,28 +5,36 @@ import (
 	"encoding/binary"
 )
 
-const FIELD_SIZE = 12
+const (
+	FIELD_SIZE = 12
+	IFD_EXIF_TAG_NUMBER = 0x8769
+	IFD_GPS_TAG_NUMBER = 0x8825
+	IFD_INTEROPERABILITY_TAG_NUMBER = 0xA005
+)
+
+type ExifTagNumber uint16
+type ExifFormatId uint16
 
 type ExifField interface {
-	GetTag() uint16
-	GetType() uint16
+	GetTag() ExifTagNumber
+	GetType() ExifFormatId
 	GetCount() uint32
 	GetData() []byte
 	String() string // for Stringer I/F
 }
 
 type ExifCommonField struct {
-	tag_ uint16
-	type_ uint16
+	tag_ ExifTagNumber
+	type_ ExifFormatId
 	count_ uint32
 	data_ []byte
 	byteOrder_ binary.ByteOrder
 }
 
-func (f *ExifCommonField) GetTag() uint16 {
+func (f *ExifCommonField) GetTag() ExifTagNumber {
 	return f.tag_
 }
-func (f *ExifCommonField) GetType() uint16 {
+func (f *ExifCommonField) GetType() ExifFormatId {
 	return f.type_
 }
 func (f *ExifCommonField) GetCount() uint32 {
@@ -42,26 +50,30 @@ func (f *ExifCommonField) GetFormatTypeString() string {
 	return FormatTypeMap[f.GetType()].FormatName
 }
 
-const IFD_FORMAT_UBYTE = 1
-const IFD_FORMAT_STRING = 2
-const IFD_FORMAT_USHORT = 3
-const IFD_FORMAT_ULONG = 4
-const IFD_FORMAT_URATIONAL = 5
-const IFD_FORMAT_SBYTE = 6
-const IFD_FORMAT_UNDEFINED = 7
-const IFD_FORMAT_SSHORT = 8
-const IFD_FORMAT_SLONG = 9
-const IFD_FORMAT_SRATIONAL = 10
-const IFD_FORMAT_SINGLE = 11
-const IFD_FORMAT_DOUBLE = 12
-const IFD_FORMAT_IFD = 13
+// Exifのタイプ定義　ちょうど連番なのでiotaを使用
+const (
+	_ = iota // 0は未使用なので捨てる
+	IFD_FORMAT_UBYTE
+	IFD_FORMAT_STRING
+	IFD_FORMAT_USHORT
+	IFD_FORMAT_ULONG
+	IFD_FORMAT_URATIONAL // 5
+	IFD_FORMAT_SBYTE
+	IFD_FORMAT_UNDEFINED
+	IFD_FORMAT_SSHORT
+	IFD_FORMAT_SLONG
+	IFD_FORMAT_SRATIONAL //10
+	IFD_FORMAT_SINGLE
+	IFD_FORMAT_DOUBLE
+	IFD_FORMAT_IFD //13
+)
 
 type FormatType struct {
 	BytePerFormat uint32
 	FormatName string
 }
 
-var FormatTypeMap = map[uint16]FormatType{
+var FormatTypeMap = map[ExifFormatId]FormatType{
 	IFD_FORMAT_UBYTE:{1, "BYTE"},
 	IFD_FORMAT_STRING:{1, "ASCII"},
 	IFD_FORMAT_USHORT:{2, "SHORT"},
@@ -77,10 +89,10 @@ var FormatTypeMap = map[uint16]FormatType{
 	IFD_FORMAT_IFD:{1, "IFD"},
 }
 
-func CreateExifField(payload []byte, offset uint32, byteOrder binary.ByteOrder) ExifField {
+func NewExifField(payload []byte, offset uint32, byteOrder binary.ByteOrder) ExifField {
 	common := ExifCommonField {
-		tag_ : byteOrder.Uint16(payload[offset:offset+2]),
-		type_ : byteOrder.Uint16(payload[offset+2:offset+4]),
+		tag_ : ExifTagNumber(byteOrder.Uint16(payload[offset:offset+2])),
+		type_ : ExifFormatId(byteOrder.Uint16(payload[offset+2:offset+4])),
 		count_ : byteOrder.Uint32(payload[offset+4:offset+8]),
 		data_ : payload[offset+8:offset+12],
 		byteOrder_ : byteOrder,

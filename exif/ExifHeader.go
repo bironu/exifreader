@@ -9,7 +9,7 @@ type ExifHeader struct {
 	ifdOffset uint32
 }
 
-func CreateExifHeader(payload []byte) *ExifHeader{
+func NewExifHeader(payload []byte) *ExifHeader{
 	var e ExifHeader
 	e.byteOrder = getByteOrder(payload[0:2])
 	e.ifdOffset = e.byteOrder.Uint32(payload[4:8])
